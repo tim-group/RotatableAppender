@@ -1,0 +1,152 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+def doSigning = gradle.startParameter.taskNames.contains("signArchives")
+if (doSigning) {
+    apply plugin: 'signing'
+}
+apply plugin: 'eclipse'
+
+group = 'com.timgroup'
+ext.description = 'Fittings for Logback to make it submit to external log rotation'
+ext.githubPath = 'youdevise/RotatableAppender'
+
+def majorVersion = 1
+def minorVersion = 0
+
+ext.url = "https://github.com/${githubPath}"
+
+/** for Maven Central; manually bump major and/or minor version numbers before building */
+def isPublicRelease() {
+    return "".equals(System.getenv('BUILD_NUMBER'))
+}
+
+/** CI builds */
+def isPrivateRelease() {
+    return !isPublicRelease() && System.getenv('BUILD_NUMBER') != null
+}
+
+if (isPublicRelease()) {
+    version = "${majorVersion}.${minorVersion}"
+} else if (isPrivateRelease()) {
+    def buildNumber = System.getenv('BUILD_NUMBER')
+    version = "${majorVersion}.${minorVersion}.${buildNumber}"
+} else /* dev build */ {
+    def timestamp = new Date().format('yyyyMMdd-HHmmss', TimeZone.getTimeZone('UTC'))
+    version = "${majorVersion}.${minorVersion}-${timestamp}"
+}
+
+jar {
+    manifest { 
+        attributes(
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': 'youDevise Ltd',
+            'Implementation-Vendor-Id': project.group,
+            'Implementation-URL': project.url
+        )
+    }
+}
+
+repositories {
+    mavenLocal()
+    if (project.hasProperty('repoUrl')) {
+        mavenRepo url: "${project.repoUrl}/groups/public"
+    }
+    else {
+        mavenCentral()
+    }
+}
+
+dependencies {
+    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.0.13'
+
+    testCompile group: 'junit', name: 'junit', version: '4.10'
+    testCompile group: 'org.mockito', name: 'mockito-core', version: '1.8.5'
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+ 
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+task pom {
+    ext.pom = pom {
+        project {
+            name project.name
+            description project.description
+            url project.url
+            
+            packaging 'jar'
+            
+            scm {
+                url "scm:${project.url}"
+                connection "scm:git:https://github.com/${project.githubPath}.git"
+                developerConnection "scm:git:git://github.com/${project.githubPath}.git"
+            }
+            
+            licenses {
+                license {
+                    name 'The BSD 2-Clause License'
+                    url 'http://opensource.org/licenses/BSD-2-Clause'
+                    distribution 'repo'
+                }
+            }
+            
+            developers {
+                developer {
+                    email 'opensource@timgroup.com'
+                }
+            }
+        }
+    }
+} << {
+    pom.writeTo("$buildDir/pom.xml")
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            if (doSigning) {
+                beforeDeployment { deployment ->
+                    signing.signPom(deployment)
+                }
+            }
+            
+            if (project.hasProperty('repoUrl')) {
+                repository(url: "${project.repoUrl}/repositories/yd-release-candidates") {
+                    authentication(userName: project.repoUsername, password: project.repoPassword)
+                }
+            }
+            
+            pom = tasks.pom.pom
+        }
+    }
+}
+uploadArchives.dependsOn pom
+
+if (doSigning) {
+    signing {
+        sign configurations.archives
+    }
+    
+    signArchives.doFirst {
+        assert file('gradle.properties').isFile(), "in order to sign anything, you need to supply signing properties via gradle.properties - see http://www.gradle.org/docs/current/userguide/signing_plugin.html"
+    }
+}
+
+eclipse {
+    classpath {
+        defaultOutputDir = file('.eclipse')
+    }
+}
+
