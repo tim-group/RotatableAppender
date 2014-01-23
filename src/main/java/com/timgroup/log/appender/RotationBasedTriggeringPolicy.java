@@ -12,14 +12,20 @@ public class RotationBasedTriggeringPolicy<E> extends TriggeringPolicyBase<E> {
     }
 
     private final Clock clock;
+    private long checkCachePeriod;
     private long lastExisted;
 
     protected RotationBasedTriggeringPolicy(Clock clock) {
         this.clock = clock;
+        this.checkCachePeriod = 1000;
     }
 
     public RotationBasedTriggeringPolicy() {
         this(new Clock());
+    }
+
+    public void setCheckCachePeriod(long checkCachePeriod) {
+        this.checkCachePeriod = checkCachePeriod;
     }
 
     @Override
@@ -29,7 +35,7 @@ public class RotationBasedTriggeringPolicy<E> extends TriggeringPolicyBase<E> {
 
     private boolean activeFileExists(File activeFile) {
         long now = clock.currentTimeMillis();
-        if (now - lastExisted < 1000) {
+        if (now - lastExisted < checkCachePeriod) {
             return true;
         } else {
             boolean exists = activeFile.exists();

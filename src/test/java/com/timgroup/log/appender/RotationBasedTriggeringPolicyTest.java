@@ -83,6 +83,22 @@ public class RotationBasedTriggeringPolicyTest {
         verify(existingFile, times(2)).exists();
     }
 
+    @Test
+    public void checkCachePeriodIsConfigurable() throws Exception {
+        RotationBasedTriggeringPolicy<Void> policy = new RotationBasedTriggeringPolicy<Void>(clock);
+        policy.setCheckCachePeriod(500L);
+
+        doReturn(1000000L).when(clock).currentTimeMillis();
+
+        checkNotTriggeredByExistingFile(policy);
+
+        doReturn(1000500L).when(clock).currentTimeMillis();
+
+        checkNotTriggeredByExistingFile(policy);
+
+        verify(existingFile, times(2)).exists();
+    }
+
     private void checkNotTriggeredByExistingFile(RotationBasedTriggeringPolicy<Void> policy) {
         doReturn(true).when(existingFile).exists();
 
