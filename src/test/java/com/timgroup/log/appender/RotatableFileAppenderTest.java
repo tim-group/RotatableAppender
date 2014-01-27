@@ -9,7 +9,6 @@ import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
 
-import ch.qos.logback.core.FileAppender;
 import ch.qos.logback.core.encoder.EchoEncoder;
 
 import static org.junit.Assert.assertEquals;
@@ -41,9 +40,10 @@ public class RotatableFileAppenderTest {
         logFile = File.createTempFile(getClass().getSimpleName(), ".log");
         rotatedLogFile = new File(logFile.getPath() + ".1");
 
-        FileAppender<String> appender = new RotatableFileAppender<String>();
+        RotatableFileAppender<String> appender = new RotatableFileAppender<String>();
         appender.setEncoder(new EchoEncoder<String>());
         appender.setFile(logFile.getPath());
+        appender.setCheckCachePeriod(0);
 
         appender.start();
 
