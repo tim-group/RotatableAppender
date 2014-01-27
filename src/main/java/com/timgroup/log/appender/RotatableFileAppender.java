@@ -12,4 +12,17 @@ public class RotatableFileAppender<E> extends RollingFileAppender<E> {
         rollingPolicy.setParent(this);
     }
 
+    public long getCheckCachePeriod() {
+        return getTriggeringPolicy().getCheckCachePeriod();
+    }
+
+    public void setCheckCachePeriod(long checkCachePeriod) {
+        getTriggeringPolicy().setCheckCachePeriod(checkCachePeriod);
+    }
+
+    @Override
+    public RotationBasedTriggeringPolicy<E> getTriggeringPolicy() {
+        return (RotationBasedTriggeringPolicy<E>) super.getTriggeringPolicy();
+    }
+
 }

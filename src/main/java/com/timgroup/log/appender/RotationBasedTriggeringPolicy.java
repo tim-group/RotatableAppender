@@ -24,6 +24,10 @@ public class RotationBasedTriggeringPolicy<E> extends TriggeringPolicyBase<E> {
         this(new Clock());
     }
 
+    public long getCheckCachePeriod() {
+        return checkCachePeriod;
+    }
+
     public void setCheckCachePeriod(long checkCachePeriod) {
         this.checkCachePeriod = checkCachePeriod;
     }
