@@ -8,7 +8,7 @@ apply plugin: 'eclipse'
 
 group = 'com.timgroup'
 ext.description = 'Fittings for Logback to make it submit to external log rotation'
-ext.githubPath = 'youdevise/RotatableAppender'
+ext.githubPath = 'tim-group/RotatableAppender'
 
 def majorVersion = 1
 def minorVersion = 0
