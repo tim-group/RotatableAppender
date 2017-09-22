@@ -89,7 +89,7 @@ task pom {
             packaging 'jar'
             
             scm {
-                url "scm:${project.url}"
+                url "${project.url}"
                 connection "scm:git:https://github.com/${project.githubPath}.git"
                 developerConnection "scm:git:git://github.com/${project.githubPath}.git"
             }
