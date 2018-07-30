@@ -64,6 +64,10 @@ dependencies {
     testCompile group: 'org.mockito', name: 'mockito-core', version: '1.8.5'
 }
 
+tasks.withType(JavaCompile).all {
+    targetCompatibility = "1.8"
+}
+
 task javadocJar(type: Jar, dependsOn: javadoc) {
     classifier = 'javadoc'
     from javadoc.destinationDir
