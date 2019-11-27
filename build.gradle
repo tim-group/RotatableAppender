@@ -1,158 +1,108 @@
-apply plugin: 'java'
-apply plugin: 'maven'
-def doSigning = gradle.startParameter.taskNames.contains("signArchives")
-if (doSigning) {
-    apply plugin: 'signing'
+plugins {
+    id "java"
+    id "maven-publish"
+    id "com.timgroup.jarmangit" version "1.1.113"
 }
-apply plugin: 'eclipse'
+
+ext {
+    description = 'Fittings for Logback to make it submit to external log rotation'
+    githubPath = 'tim-group/RotatableAppender'
+    url = "https://github.com/${githubPath}"
+    buildNumber = System.getenv('BUILD_NUMBER')
+}
 
 group = 'com.timgroup'
-ext.description = 'Fittings for Logback to make it submit to external log rotation'
-ext.githubPath = 'tim-group/RotatableAppender'
+if (buildNumber) version = "1.0.${buildNumber}"
 
-def majorVersion = 1
-def minorVersion = 0
-
-ext.url = "https://github.com/${githubPath}"
-
-/** for Maven Central; manually bump major and/or minor version numbers before building */
-def isPublicRelease() {
-    return "".equals(System.getenv('BUILD_NUMBER'))
-}
-
-/** CI builds */
-def isPrivateRelease() {
-    return !isPublicRelease() && System.getenv('BUILD_NUMBER') != null
-}
-
-if (isPublicRelease()) {
-    version = "${majorVersion}.${minorVersion}"
-} else if (isPrivateRelease()) {
-    def buildNumber = System.getenv('BUILD_NUMBER')
-    version = "${majorVersion}.${minorVersion}.${buildNumber}"
-} else /* dev build */ {
-    def timestamp = new Date().format('yyyyMMdd-HHmmss', TimeZone.getTimeZone('UTC'))
-    version = "${majorVersion}.${minorVersion}-${timestamp}"
-}
-
-jar {
-    manifest { 
+tasks.withType(Jar).configureEach {
+    manifest {
         attributes(
-            'Implementation-Title': project.name,
-            'Implementation-Version': project.version,
-            'Implementation-Vendor': 'youDevise Ltd',
-            'Implementation-Vendor-Id': project.group,
-            'Implementation-URL': project.url
+                "Implementation-Title": project.name,
+                "Implementation-Version": project.version,
+                "Implementation-Vendor": "TIM Group Ltd"
         )
     }
 }
 
 repositories {
-    mavenLocal()
-    if (project.hasProperty('repoUrl')) {
-        maven { url "${project.repoUrl}/groups/public" }
-    }
-    else {
-        mavenCentral()
-    }
+    mavenCentral()
 }
 
 dependencies {
-    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.0.13'
+    implementation "ch.qos.logback:logback-core:1.0.13"
 
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.24.0'
+    testImplementation "junit:junit:4.12"
+    testImplementation "org.mockito:mockito-core:2.24.0"
 }
 
-tasks.withType(JavaCompile).all {
+tasks.withType(JavaCompile).configureEach {
     sourceCompatibility = "1.8"
     targetCompatibility = "1.8"
+    options.encoding = "UTF-8"
+    options.incremental = true
+    options.deprecation = true
+    options.compilerArgs << "-parameters"
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from javadoc.destinationDir
-}
- 
-task sourcesJar(type: Jar) {
+tasks.register("sourcesJar", Jar) {
+    dependsOn("classes")
     classifier = 'sources'
     from sourceSets.main.allSource
 }
 
-artifacts {
-    archives sourcesJar
-    archives javadocJar
+tasks.register("javadocJar", Jar) {
+    dependsOn("javadoc")
+    classifier = 'javadoc'
+    from javadoc.destinationDir
 }
 
-task pom {
-    ext.pom = pom {
-        project {
-            name project.name
-            description project.description
-            url project.url
-            
-            packaging 'jar'
-            
-            scm {
-                url "${project.url}"
-                connection "scm:git:https://github.com/${project.githubPath}.git"
-                developerConnection "scm:git:git://github.com/${project.githubPath}.git"
-            }
-            
-            licenses {
-                license {
-                    name 'The BSD 2-Clause License'
-                    url 'http://opensource.org/licenses/BSD-2-Clause'
-                    distribution 'repo'
-                }
-            }
-            
-            developers {
-                developer {
-                    email 'opensource@timgroup.com'
-                }
-            }
-        }
-    }
-    doLast {
-        pom.writeTo("$buildDir/pom.xml")
-   }
+tasks.named("assemble").configure {
+    dependsOn("sourcesJar")
+    dependsOn("javadocJar")
 }
 
-uploadArchives {
+publishing {
     repositories {
-        mavenDeployer {
-            if (doSigning) {
-                beforeDeployment { deployment ->
-                    signing.signPom(deployment)
+        if (project.hasProperty("repoUrl")) {
+            maven {
+                url "${project.repoUrl}/repositories/yd-release-candidates"
+                credentials {
+                    username = project.repoUsername
+                    password = project.repoPassword
                 }
             }
-            
-            if (project.hasProperty('repoUrl')) {
-                repository(url: "${project.repoUrl}/repositories/yd-release-candidates") {
-                    authentication(userName: project.repoUsername, password: project.repoPassword)
+        }
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId project.ext.has('artifactId') ? project.ext.artifactId
+                    : project == rootProject ? project.name
+                    : rootProject.name + project.path.replace(':', '-')
+            from components.java
+            artifact(tasks.sourcesJar)
+            artifact(tasks.javadocJar)
+            pom.withXml {
+                asNode().children().last() + {
+                    resolveStrategy = DELEGATE_FIRST
+                    name project.ext.has('pomName') ? project.ext.pomName : project.name
+                    description project.description
+                    url project.ext.url
+                    licenses {
+                        license {
+                            name 'The BSD 2-Clause License'
+                            url 'http://opensource.org/licenses/BSD-2-Clause'
+                            distribution 'repo'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id 'steve.haslam@timgroup.com'
+                            name 'Steve Haslam'
+                            email 'steve.haslam@timgroup.com'
+                        }
+                    }
                 }
             }
-            
-            pom = tasks.pom.pom
         }
     }
 }
-uploadArchives.dependsOn pom
-
-if (doSigning) {
-    signing {
-        sign configurations.archives
-    }
-    
-    signArchives.doFirst {
-        assert file('gradle.properties').isFile(), "in order to sign anything, you need to supply signing properties via gradle.properties - see http://www.gradle.org/docs/current/userguide/signing_plugin.html"
-    }
-}
-
-eclipse {
-    classpath {
-        defaultOutputDir = file('.eclipse')
-    }
-}
-
